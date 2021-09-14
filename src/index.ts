@@ -80,6 +80,7 @@ export default async function gen(
       encoding: 'utf8'
     });
   };
+
   const swagger2tsConfig = { ...defaultParseConfig, ...swaggerParser };
   if (
     swagger2tsConfig['-t'] === 'plugins/types-only' ||
@@ -88,21 +89,69 @@ export default async function gen(
     swagger2tsConfig['-t'] = path.join(pluginsPath, '..', swagger2tsConfig['-t']);
   }
   const servicesPath = swagger2tsConfig['-o'] || '';
+
   // IMP: 加载新版
   const code: number = await new Promise(rs => {
     const loader = (cb: (err: any, res: { body?: SwaggerJson }) => any) => {
+      //  处理数组型remoteUrl
+      const dealUrl = async (url: string | Array<string>) => {
+        if (Array.isArray(url)) {
+          const reqArr = url.map(it => {
+            return new Promise((resolve, reject) => {
+              request.get(
+                it,
+                {
+                  ...requestConfig
+                },
+                (err, res) => {
+                  if (err) {
+                    reject(err);
+                  } else {
+                    resolve(res);
+                  }
+                }
+              );
+            });
+          });
+          const res = Promise.all(reqArr)
+            .then(resArr => {
+              const ret = resArr.reduce((cur: string, next: string) => {
+                const cur1 = JSON.parse(cur) as SwaggerJson;
+                const next1 = JSON.parse(next) as SwaggerJson;
+                const all: SwaggerJson = {
+                  ...cur1,
+                  ...next1,
+                  tags: [...(cur1?.tags || []), ...(next1?.tags || [])],
+                  paths: {
+                    ...cur1?.paths,
+                    ...next1?.paths
+                  }
+                };
+                return all;
+              }, '{}') as SwaggerJson;
+              cb(false, { body: ret });
+            })
+            .catch(err => {
+              cb(err, {});
+            });
+        } else {
+          request.get(
+            {
+              ...requestConfig,
+              url
+            },
+            (err, res) => cb(err, { body: JSON.parse(res.body) })
+          );
+        }
+      };
+
       remoteSwaggerUrl
         ? remoteSwaggerUrl.match(RemoteUrlReg)
-          ? request.get(
-              {
-                ...requestConfig,
-                url: remoteSwaggerUrl
-              },
-              (err, res) => cb(err, { body: JSON.parse(res.body) })
-            )
+          ? dealUrl(remoteSwaggerUrl)
           : cb(undefined, { body: require(remoteSwaggerUrl) as SwaggerJson })
         : cb(undefined, {});
     };
+
     loader(async (err, { body: newSwagger }) => {
       if (err) {
         console.log(chalk.red(`[ERROR]: 下载 Swagger JSON 失败: ${err}`));

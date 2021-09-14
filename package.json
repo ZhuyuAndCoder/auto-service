@@ -1,5 +1,5 @@
 {
-  "name": "auto-service",
+  "name": "auto-service-diy",
   "version": "3.6.1",
   "description": "auto generate swagger or yapi mock to typescript services and models",
   "repository": "git@github.com:gogoyqj/auto-service.git",
