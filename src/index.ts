@@ -54,11 +54,13 @@ export default async function gen(
   /** 远程或本地新版本 */
   let remoteSwaggerUrl = (requestConfig.url = requestConfig.url || remoteUrl || '');
   if (remoteSwaggerUrl) {
-    if (!Array.isArray(remoteSwaggerUrl) && !remoteSwaggerUrl.match(RemoteUrlReg)) {
-      remoteSwaggerUrl = path.join(ProjectDir, remoteSwaggerUrl);
-      if (!fs.existsSync(remoteSwaggerUrl)) {
-        console.log(chalk.red(`[ERROR]: remoteUrl 指定的文件 ${remoteUrl} 不存在`));
-        throw 1;
+    if (!Array.isArray(remoteSwaggerUrl)) {
+      if (!remoteSwaggerUrl.match(RemoteUrlReg)) {
+        remoteSwaggerUrl = path.join(ProjectDir, remoteSwaggerUrl);
+        if (!fs.existsSync(remoteSwaggerUrl)) {
+          console.log(chalk.red(`[ERROR]: remoteUrl 指定的文件 ${remoteUrl} 不存在`));
+          throw 1;
+        }
       }
     }
   }
@@ -157,7 +159,8 @@ export default async function gen(
       };
 
       remoteSwaggerUrl
-        ? Array.isArray(remoteSwaggerUrl) || remoteSwaggerUrl.match(RemoteUrlReg)
+        ? Array.isArray(remoteSwaggerUrl) ||
+          (typeof remoteSwaggerUrl == 'string' && remoteSwaggerUrl.match(RemoteUrlReg))
           ? dealUrl(remoteSwaggerUrl)
           : cb(undefined, { body: require(remoteSwaggerUrl) as SwaggerJson })
         : cb(undefined, {});
