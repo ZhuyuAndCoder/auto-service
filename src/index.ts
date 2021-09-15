@@ -54,7 +54,7 @@ export default async function gen(
   /** 远程或本地新版本 */
   let remoteSwaggerUrl = (requestConfig.url = requestConfig.url || remoteUrl || '');
   if (remoteSwaggerUrl) {
-    if (!remoteSwaggerUrl.match(RemoteUrlReg)) {
+    if (!Array.isArray(remoteSwaggerUrl) && !remoteSwaggerUrl.match(RemoteUrlReg)) {
       remoteSwaggerUrl = path.join(ProjectDir, remoteSwaggerUrl);
       if (!fs.existsSync(remoteSwaggerUrl)) {
         console.log(chalk.red(`[ERROR]: remoteUrl 指定的文件 ${remoteUrl} 不存在`));
@@ -65,12 +65,30 @@ export default async function gen(
 
   // IMP: yapi => swagger
   if (type === 'yapi') {
-    const yapiTMP = await serve(remoteSwaggerUrl, config.yapiConfig);
-    if ('result' in yapiTMP && yapiTMP.result && !yapiTMP.code) {
-      remoteSwaggerUrl = yapiTMP.result;
+    if (Array.isArray(remoteSwaggerUrl)) {
+      const reqArr = remoteSwaggerUrl.map(it => serve(it, config.yapiConfig));
+      Promise.all(reqArr)
+        .then(resArr => {
+          let swaggerObj = {};
+          resArr.forEach(item => {
+            if ('result' in item && item.result && !item.code) {
+              swaggerObj = { ...swaggerObj, ...JSON.parse(item.result) };
+            } else {
+              console.log(chalk.red(`[ERROR]: 基于 YAPI 生成失败: ${item.message}`));
+              throw 1;
+            }
+          });
+          remoteSwaggerUrl = JSON.stringify(swaggerObj, null, 2);
+        })
+        .catch(err => {});
     } else {
-      console.log(chalk.red(`[ERROR]: 基于 YAPI 生成失败: ${yapiTMP.message}`));
-      throw 1;
+      const yapiTMP = await serve(remoteSwaggerUrl, config.yapiConfig);
+      if ('result' in yapiTMP && yapiTMP.result && !yapiTMP.code) {
+        remoteSwaggerUrl = yapiTMP.result;
+      } else {
+        console.log(chalk.red(`[ERROR]: 基于 YAPI 生成失败: ${yapiTMP.message}`));
+        throw 1;
+      }
     }
   }
 
@@ -116,17 +134,10 @@ export default async function gen(
           const res = Promise.all(reqArr)
             .then(resArr => {
               const ret = resArr.reduce((cur: string, next: string) => {
-                const cur1 = JSON.parse(cur) as SwaggerJson;
-                const next1 = JSON.parse(next) as SwaggerJson;
-                const all: SwaggerJson = {
-                  ...cur1,
-                  ...next1,
-                  tags: [...(cur1?.tags || []), ...(next1?.tags || [])],
-                  paths: {
-                    ...cur1?.paths,
-                    ...next1?.paths
-                  }
-                };
+                const cur1 = JSON.parse(cur);
+                const next1 = JSON.parse(next);
+                const all: Array<Object> = [...cur1, ...next1];
+
                 return all;
               }, '{}') as SwaggerJson;
               cb(false, { body: ret });
@@ -146,7 +157,7 @@ export default async function gen(
       };
 
       remoteSwaggerUrl
-        ? remoteSwaggerUrl.match(RemoteUrlReg)
+        ? Array.isArray(remoteSwaggerUrl) || remoteSwaggerUrl.match(RemoteUrlReg)
           ? dealUrl(remoteSwaggerUrl)
           : cb(undefined, { body: require(remoteSwaggerUrl) as SwaggerJson })
         : cb(undefined, {});
