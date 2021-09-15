@@ -52,7 +52,8 @@ export default async function gen(
   const localSwaggerUrl = path.join(ProjectDir, url);
 
   /** 远程或本地新版本 */
-  let remoteSwaggerUrl = (requestConfig.url = requestConfig.url || remoteUrl || '');
+  let remoteSwaggerUrl: string | string[] | SwaggerJson = (requestConfig.url =
+    requestConfig.url || remoteUrl || '');
   if (remoteSwaggerUrl) {
     if (!Array.isArray(remoteSwaggerUrl)) {
       if (!remoteSwaggerUrl.match(RemoteUrlReg)) {
@@ -71,16 +72,25 @@ export default async function gen(
       const reqArr = remoteSwaggerUrl.map(it => serve(it, config.yapiConfig));
       Promise.all(reqArr)
         .then(resArr => {
-          let swaggerObj = {};
+          let swaggerObj = {} as SwaggerJson;
           resArr.forEach(item => {
             if ('result' in item && item.result && !item.code) {
-              swaggerObj = { ...swaggerObj, ...JSON.parse(item.result) };
+              const res = item.result;
+              swaggerObj = {
+                ...swaggerObj,
+                ...res,
+                tags: [...(swaggerObj?.tags || []), ...(res?.tags || [])],
+                paths: {
+                  ...swaggerObj?.paths,
+                  ...res?.paths
+                }
+              };
             } else {
               console.log(chalk.red(`[ERROR]: 基于 YAPI 生成失败: ${item.message}`));
               throw 1;
             }
           });
-          remoteSwaggerUrl = JSON.stringify(swaggerObj, null, 2);
+          remoteSwaggerUrl = swaggerObj;
         })
         .catch(err => {});
     } else {
@@ -127,7 +137,7 @@ export default async function gen(
                   if (err) {
                     reject(err);
                   } else {
-                    resolve(res);
+                    resolve(res.body);
                   }
                 }
               );
@@ -138,11 +148,11 @@ export default async function gen(
               const ret = resArr.reduce((cur: string, next: string) => {
                 const cur1 = JSON.parse(cur);
                 const next1 = JSON.parse(next);
-                const all: Array<Object> = [...cur1, ...next1];
+                const all = JSON.stringify([...cur1, ...next1]);
 
                 return all;
-              }, '{}') as SwaggerJson;
-              cb(false, { body: ret });
+              }, '[]') as string;
+              cb(false, { body: JSON.parse(ret) });
             })
             .catch(err => {
               cb(err, {});

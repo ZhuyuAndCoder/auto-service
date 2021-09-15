@@ -34,7 +34,6 @@ export function operationIdGuard(swagger: SwaggerJson, config: GuardConfig = {})
   /** 已持久化 `method` + `url` => operationId 映射 */
   const copySavedMethodUrl2OperationIdMap = { ...savedMethodUrl2OperationIdMap };
   const isRelationMapped = !!Object.keys(copySavedMethodUrl2OperationIdMap).length;
-
   /** 错误日志：例如参数错误、危险operationId */
   const errors: string[] = [];
   /** 警告日志：根据锁定关系自动校正日志 */
