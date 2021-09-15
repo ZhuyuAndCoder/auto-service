@@ -70,29 +70,26 @@ export default async function gen(
   if (type === 'yapi') {
     if (Array.isArray(remoteSwaggerUrl)) {
       const reqArr = remoteSwaggerUrl.map(it => serve(it, config.yapiConfig));
-      Promise.all(reqArr)
-        .then(resArr => {
-          let swaggerObj = {} as SwaggerJson;
-          resArr.forEach(item => {
-            if ('result' in item && item.result && !item.code) {
-              const res = item.result;
-              swaggerObj = {
-                ...swaggerObj,
-                ...res,
-                tags: [...(swaggerObj?.tags || []), ...(res?.tags || [])],
-                paths: {
-                  ...swaggerObj?.paths,
-                  ...res?.paths
-                }
-              };
-            } else {
-              console.log(chalk.red(`[ERROR]: 基于 YAPI 生成失败: ${item.message}`));
-              throw 1;
+      const resArr = await Promise.all(reqArr);
+      let swaggerObj = {} as SwaggerJson;
+      resArr.forEach(item => {
+        if ('result' in item && item.result && !item.code) {
+          const res = item.result;
+          swaggerObj = {
+            ...swaggerObj,
+            ...res,
+            tags: [...(swaggerObj?.tags || []), ...(res?.tags || [])],
+            paths: {
+              ...swaggerObj?.paths,
+              ...res?.paths
             }
-          });
-          remoteSwaggerUrl = swaggerObj;
-        })
-        .catch(err => {});
+          };
+        } else {
+          console.log(chalk.red(`[ERROR]: 基于 YAPI 生成失败: ${item.message}`));
+          throw 1;
+        }
+      });
+      remoteSwaggerUrl = swaggerObj;
     } else {
       const yapiTMP = await serve(remoteSwaggerUrl, config.yapiConfig);
       if ('result' in yapiTMP && yapiTMP.result && !yapiTMP.code) {
@@ -172,7 +169,7 @@ export default async function gen(
         ? Array.isArray(remoteSwaggerUrl) ||
           (typeof remoteSwaggerUrl == 'string' && remoteSwaggerUrl.match(RemoteUrlReg))
           ? dealUrl(remoteSwaggerUrl)
-          : cb(undefined, { body: require(remoteSwaggerUrl) as SwaggerJson })
+          : cb(undefined, { body: remoteSwaggerUrl as SwaggerJson })
         : cb(undefined, {});
     };
 

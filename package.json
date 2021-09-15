@@ -1,6 +1,6 @@
 {
   "name": "auto-service-diy",
-  "version": "0.0.4",
+  "version": "0.0.7",
   "description": "auto generate swagger or yapi mock to typescript services and models",
   "repository": "https://github.com/ZhuyuAndCoder/auto-service",
   "author": "杨乾军 <yang@yang>",
