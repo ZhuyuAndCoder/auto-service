@@ -1,11 +1,4 @@
----
-支持数组型remoteurl满足项目需求
-name: 指南
-route: /
----
-
-import logo from './public/assets/logo.png';
-import swagger from './public/assets/swagger.png';
+# 支持数组型 remoteurl 满足项目需求
 
 # Autos
 
